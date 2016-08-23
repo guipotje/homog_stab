@@ -6,7 +6,11 @@
 import cv2
 import numpy as np
 
-WINDOW_SIZE = 15
+#Parameters
+WINDOW_SIZE = 15 
+AVERAGING = 'mean' #mean or median -- mean works better
+skip = 5 # speedup -- set 1 for original speed
+
 
 def find_homography(kp1, des1, kp2, des2):
 
@@ -46,8 +50,8 @@ cap = cv2.VideoCapture("data/MOV_0485.mp4")
 
 frames = []
 mean_homographies = []
+median_homographies = []
 corrected_frames = []
-skip = 5
 i = 0
 
 while True: #and i<400:
@@ -74,27 +78,29 @@ for frame in frames:
 
 out_orig.release()
 
-orb = cv2.SIFT(nfeatures=1200)
+orb = cv2.SIFT(nfeatures=1000)
 
 vec_kps = []
 vec_descs = []
 
 print 'extracting keypoints...'
 
-for frame in frames:
+for i in range(len(frames)):
 	# find the keypoints and descriptors 
-	kp1, des1 = orb.detectAndCompute(frame,None)
+	kp1, des1 = orb.detectAndCompute(frames[i],None)
 
 	vec_kps.append(kp1)
 	vec_descs.append(des1)
 
-	print 'found %d keypoints'% (len(kp1))
+	print 'Frame %d/%d: found %d keypoints'% (i,len(frames),len(kp1))
 
 
 
 for i in range(len(frames)):
 	mean_H = np.zeros((3,3), dtype='float64')
+	median_H = []
 	mean_C = 0
+	median_vals = []
 	k =  int(WINDOW_SIZE/2.0)+1
 	for j in range(i-k,i+k,1):
 		if j >= 0 and j < len(frames) and i != j:
@@ -103,8 +109,26 @@ for i in range(len(frames)):
 			if inliers_c > 80:
 				mean_H = mean_H + H
 				mean_C+=1
-	mean_homographies.append(mean_H/mean_C)
-	#print mean_H
+				if AVERAGING == 'median':
+					median_H.append(H)
+
+	if AVERAGING == 'median':
+		for l in range(3):
+			for m in range(3):
+				vals = []
+				for mat in median_H:
+					vals.append(mat[l,m])
+				median_vals.append(vals)
+
+		median_vals = np.array(median_vals)
+		median_vals = np.median(median_vals, axis=1).reshape((3,3)) #rows
+		median_homographies.append(median_vals) # Median homography
+
+	mean_homographies.append(mean_H/mean_C) # Mean homography
+	
+	#print mean_H/mean_C
+	#print median_vals
+	#raw_input()
 
     #fourcc = cv2.cv.CV_FOURCC('D','I','V','X')
     #fourcc = cv2.cv.CV_FOURCC('R','G','B',' ')
@@ -129,7 +153,10 @@ size = (frames[0].shape[1]-crop_x*2, frames[0].shape[0]-crop_y*2)
 out =  cv2.VideoWriter('data/estabilizado.avi',fourcc,30.0,size)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
 
 for i in range(len(frames)):
-	corrected = cv2.warpPerspective(frames[i],mean_homographies[i],(0,0))
+	if AVERAGING == 'mean':
+		corrected = cv2.warpPerspective(frames[i],mean_homographies[i],(0,0))
+	else:
+		corrected = cv2.warpPerspective(frames[i],median_homographies[i],(0,0))
 	#cv2.imshow('video corrected', corrected)
 	#cv2.waitKey(10)
 	out.write(corrected[crop_y:frames[0].shape[0]-crop_y, crop_x:frames[0].shape[1]-crop_x])

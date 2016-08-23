@@ -1,7 +1,12 @@
+#	Simple homography-based video stabilization
+#	Author: Guilherme Potje
+
+
+
 import cv2
 import numpy as np
 
-WINDOW_SIZE = 13
+WINDOW_SIZE = 15
 
 def find_homography(kp1, des1, kp2, des2):
 
@@ -69,7 +74,7 @@ for frame in frames:
 
 out_orig.release()
 
-orb = cv2.SIFT(nfeatures=900)
+orb = cv2.SIFT(nfeatures=1200)
 
 vec_kps = []
 vec_descs = []

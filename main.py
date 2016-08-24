@@ -8,8 +8,7 @@ import numpy as np
 
 #Parameters
 WINDOW_SIZE = 15 
-AVERAGING = 'mean' #mean or median -- mean works better
-skip = 5 # speedup -- set 1 for original speed
+skip = 10 # speedup -- set 1 for original speed
 
 
 def find_homography(kp1, des1, kp2, des2):
@@ -102,29 +101,21 @@ for i in range(len(frames)):
 	mean_C = 0
 	median_vals = []
 	k =  int(WINDOW_SIZE/2.0)+1
-	for j in range(i-k,i+k,1):
-		if j >= 0 and j < len(frames) and i != j:
-			inliers_c, H = find_homography(vec_kps[i],vec_descs[i], vec_kps[j], vec_descs[j])
-			print 'pair (%d,%d) has %d inliers'% (i,j,inliers_c)
-			if inliers_c > 80:
+	for j in range(1,k,1): #for each couple neighbor frames iterated by distance
+		if i-j >= 0 and i+j < len(frames):
+			inliers_c, H = find_homography(vec_kps[i],vec_descs[i], vec_kps[i-j], vec_descs[i-j])
+			inliers_c2, H2 = find_homography(vec_kps[i],vec_descs[i], vec_kps[i+j], vec_descs[i+j])
+			print 'pair (%d,%d) has %d inliers'% (i,i-j,inliers_c)
+			print 'pair (%d,%d) has %d inliers'% (i,i+j,inliers_c2)
+			if inliers_c > 80 and inliers_c2 > 80: #ensures that neighbors are equally selected by distance to correctly balance the homography
 				mean_H = mean_H + H
-				mean_C+=1
-				if AVERAGING == 'median':
-					median_H.append(H)
+				mean_H = mean_H + H2
+				mean_C+=2
 
-	if AVERAGING == 'median':
-		for l in range(3):
-			for m in range(3):
-				vals = []
-				for mat in median_H:
-					vals.append(mat[l,m])
-				median_vals.append(vals)
-
-		median_vals = np.array(median_vals)
-		median_vals = np.median(median_vals, axis=1).reshape((3,3)) #rows
-		median_homographies.append(median_vals) # Median homography
-
-	mean_homographies.append(mean_H/mean_C) # Mean homography
+	if mean_C > 0:
+		mean_homographies.append(mean_H/mean_C) # Mean homography
+	else:
+		mean_homographies.append(np.eye(3, dtype='float64'))
 	
 	#print mean_H/mean_C
 	#print median_vals
@@ -153,10 +144,7 @@ size = (frames[0].shape[1]-crop_x*2, frames[0].shape[0]-crop_y*2)
 out =  cv2.VideoWriter('data/estabilizado.avi',fourcc,30.0,size)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
 
 for i in range(len(frames)):
-	if AVERAGING == 'mean':
-		corrected = cv2.warpPerspective(frames[i],mean_homographies[i],(0,0))
-	else:
-		corrected = cv2.warpPerspective(frames[i],median_homographies[i],(0,0))
+	corrected = cv2.warpPerspective(frames[i],mean_homographies[i],(0,0))
 	#cv2.imshow('video corrected', corrected)
 	#cv2.waitKey(10)
 	out.write(corrected[crop_y:frames[0].shape[0]-crop_y, crop_x:frames[0].shape[1]-crop_x])

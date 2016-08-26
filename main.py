@@ -6,9 +6,15 @@
 import cv2
 import numpy as np
 
+import Tkinter as tk
+from Tkinter import *
+from tkFileDialog import askopenfilename
+
+
 #Parameters
 WINDOW_SIZE = 15 
-skip = 10 # speedup -- set 1 for original speed
+skip = 1 # speedup -- set 1 for original speed
+resize = 0.5 #scale video resolution
 
 
 def find_homography(kp1, des1, kp2, des2):
@@ -45,7 +51,16 @@ def find_homography(kp1, des1, kp2, des2):
 
 
 
-cap = cv2.VideoCapture("data/MOV_0485.mp4")
+root = tk.Tk()
+root.withdraw()
+file = askopenfilename()
+root.destroy()
+
+if len(file) == 0:
+	print 'please select a video.'
+	quit()
+
+cap = cv2.VideoCapture(file)
 
 frames = []
 mean_homographies = []
@@ -59,7 +74,7 @@ while True: #and i<400:
 		if not flag:
 			continue
 		elif i%skip == 0:
-			frame = cv2.resize(frame, (0,0), fx=0.5, fy=0.5)
+			frame = cv2.resize(frame, (0,0), fx=resize, fy=resize)
             #cv2.imshow('video', frame)
 			frames.append(frame)
 		i+=1
@@ -69,7 +84,7 @@ while True: #and i<400:
   
 fourcc = cv2.cv.CV_FOURCC('X','V','I','D')
 size_orig = (frames[0].shape[1], frames[0].shape[0])
-out_orig =  cv2.VideoWriter('data/original.avi',fourcc,30.0,size_orig)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
+out_orig =  cv2.VideoWriter(file+'__original.avi',fourcc,30.0,size_orig)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
 
 #write original video with skip x speedup
 for frame in frames:
@@ -141,7 +156,7 @@ crop_x = 80
 crop_y = 60
 
 size = (frames[0].shape[1]-crop_x*2, frames[0].shape[0]-crop_y*2)
-out =  cv2.VideoWriter('data/estabilizado.avi',fourcc,30.0,size)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
+out =  cv2.VideoWriter(file+'__estabilizado.avi',fourcc,30.0,size)#cv2.VideoWriter('stab.mp4',-1, 30.0, (frames[0].shape[0], frames[0].shape[1]))
 
 for i in range(len(frames)):
 	corrected = cv2.warpPerspective(frames[i],mean_homographies[i],(0,0))

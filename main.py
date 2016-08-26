@@ -1,7 +1,3 @@
-#	Simple homography-based video stabilization
-#	Author: Guilherme Potje
-
-
 
 import cv2
 import numpy as np
